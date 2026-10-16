@@ -312,15 +312,15 @@ export function addNotification(notif: Omit<Notification, "id" | "timestamp" | "
   return created
 }
 
-export function markNotificationAsRead(id: string) {
+function markNotificationAsRead(id: string) {
   setNotificationStore(notificationStore.map((n) => (n.id === id ? { ...n, read: true } : n)))
 }
 
-export function markAllNotificationsAsRead() {
+function markAllNotificationsAsRead() {
   setNotificationStore(notificationStore.map((n) => ({ ...n, read: true })))
 }
 
-export function clearNotificationHistory() {
+function clearNotificationHistory() {
   setNotificationStore([])
 }
 

@@ -117,7 +117,6 @@ vi.mock("@/hooks/useRpcHealth", () => ({
 
 vi.mock("@/hooks/useContractEventContext", () => ({
   useContractEventContext: () => ({ events: [] }),
-  ContractEventProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 // Stub the form components that have pre-existing parse issues so they render
