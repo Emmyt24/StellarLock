@@ -37,6 +37,9 @@ vi.mock("@/hooks/useWallet", () => ({
     disconnect: vi.fn(),
     signTransaction: vi.fn(),
   }),
+}))
+
+vi.mock("@/hooks/WalletProvider", () => ({
   WalletProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 

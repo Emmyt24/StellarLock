@@ -16,6 +16,9 @@ const unlockedLock = { ...mockLock, unlockAt: Date.now() - 60_000, metadata: {} 
 
 vi.mock("@/hooks/useWallet", () => ({
   useWallet: () => mockWallet,
+}))
+
+vi.mock("@/hooks/WalletProvider", () => ({
   WalletProvider: ({ children }: { children: ReactNode }) => children,
 }))
 
