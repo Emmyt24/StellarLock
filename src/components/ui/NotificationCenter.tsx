@@ -66,12 +66,12 @@ export function NotificationCenter() {
             <h2 className="font-semibold">Notifications</h2>
             <div className="flex gap-2">
               {unreadCount > 0 && (
-                <button onClick={markAllAsRead} className="rounded p-1 hover:bg-secondary" title="Mark all as read">
+                <button onClick={markAllAsRead} className="rounded p-1 hover:bg-secondary" aria-label="Mark all as read">
                   <CheckCheck className="h-4 w-4" />
                 </button>
               )}
               {notifications.length > 0 && (
-                <button onClick={clearHistory} className="rounded p-1 hover:bg-secondary" title="Clear all">
+                <button onClick={clearHistory} className="rounded p-1 hover:bg-secondary" aria-label="Clear all">
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}

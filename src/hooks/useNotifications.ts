@@ -40,7 +40,7 @@ export interface NotificationPrefs {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ""
 
-export interface SubscribeParams {
+interface SubscribeParams {
   lockId: string
   address: string
   email?: string
@@ -205,7 +205,7 @@ export function scheduleUnlockReminder(lockId: string, unlockAt: number) {
   }
 }
 
-export interface WebhookPayload {
+interface WebhookPayload {
   event: "unlock_reminder" | "unlocked"
   lockId: string
   unlockAt: number

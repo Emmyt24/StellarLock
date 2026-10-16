@@ -111,7 +111,7 @@ export function useMyLocks(address: string | null, offset = 0, limit = 50) {
  *
  * Fixes: stats computed from the current page only (issue #595).
  */
-export interface MyLocksStats {
+interface MyLocksStats {
   totalValue: number
   unlockable: number
 }
@@ -155,13 +155,13 @@ export function useTokenAllowance(tokenAddress: string | undefined, owner: strin
   )
 }
 
-export interface DiscoverTokenGroup {
+interface DiscoverTokenGroup {
   token: TokenMeta
   count: number
   totalValue: number
 }
 
-export interface DiscoverStats {
+interface DiscoverStats {
   /** Which backend actually served this data — surfaced for debugging/telemetry, not shown to users. */
   source: "indexer" | "mock"
   totalLocks: number

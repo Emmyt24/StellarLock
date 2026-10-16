@@ -17,7 +17,7 @@ function keyFor(tokenAddress: string, owner: string) {
   return `${tokenAddress}:${owner}`
 }
 
-export interface UseTokenBalanceSWROptions {
+interface UseTokenBalanceSWROptions {
   ttlMs?: number
   enabled?: boolean
 }
