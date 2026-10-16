@@ -1,3 +1,5 @@
+import { NETWORK } from "@/lib/stellar"
+
 export interface StructuredError {
   code: string
   title: string
@@ -95,26 +97,19 @@ const CONTRACT_ERRORS: Record<string, Omit<StructuredError, "code">> = {
     link: null,
     i18nKey: "errors.rateLimitExceeded",
   },
-  UnlockTooSoon: {
-    title: "errors.unlockTooSoon.title",
-    message: "errors.unlockTooSoon.message",
-    recovery: "errors.unlockTooSoon.recovery",
+  LockDurationTooShort: {
+    title: "errors.lockDurationTooShort.title",
+    message: "errors.lockDurationTooShort.message",
+    recovery: "errors.lockDurationTooShort.recovery",
     link: null,
-    i18nKey: "errors.unlockTooSoon",
+    i18nKey: "errors.lockDurationTooShort",
   },
-  ExtensionLimitReached: {
-    title: "errors.extensionLimitReached.title",
-    message: "errors.extensionLimitReached.message",
-    recovery: "errors.extensionLimitReached.recovery",
+  ExtensionLimitExceeded: {
+    title: "errors.extensionLimitExceeded.title",
+    message: "errors.extensionLimitExceeded.message",
+    recovery: "errors.extensionLimitExceeded.recovery",
     link: null,
-    i18nKey: "errors.extensionLimitReached",
-  },
-  UnlockExceedsMax: {
-    title: "errors.unlockExceedsMax.title",
-    message: "errors.unlockExceedsMax.message",
-    recovery: "errors.unlockExceedsMax.recovery",
-    link: null,
-    i18nKey: "errors.unlockExceedsMax",
+    i18nKey: "errors.extensionLimitExceeded",
   },
   // --- Previously missing contract error variants, now mapped ---
   AmountOverflow: {
@@ -160,6 +155,27 @@ const CONTRACT_ERRORS: Record<string, Omit<StructuredError, "code">> = {
     link: null,
     i18nKey: "errors.identicalTokens",
   },
+  NotInitialized: {
+    title: "errors.notInitialized.title",
+    message: "errors.notInitialized.message",
+    recovery: "errors.notInitialized.recovery",
+    link: null,
+    i18nKey: "errors.notInitialized",
+  },
+  LockNotFound: {
+    title: "errors.lockNotFound.title",
+    message: "errors.lockNotFound.message",
+    recovery: "errors.lockNotFound.recovery",
+    link: null,
+    i18nKey: "errors.lockNotFound",
+  },
+  ContractPaused: {
+    title: "errors.contractPaused.title",
+    message: "errors.contractPaused.message",
+    recovery: "errors.contractPaused.recovery",
+    link: null,
+    i18nKey: "errors.contractPaused",
+  },
 }
 
 // Map wallet/network errors
@@ -203,7 +219,7 @@ function parseWalletError(err: unknown): StructuredError | null {
       title: "errors.timeout.title",
       message: "errors.timeout.message",
       recovery: "errors.timeout.recovery",
-      link: { label: "Check on Stellar Expert", url: "https://stellar.expert/explorer/testnet" },
+      link: { label: "Check on Stellar Expert", url: `https://stellar.expert/explorer/${NETWORK.networkName}` },
     }
   }
   return null

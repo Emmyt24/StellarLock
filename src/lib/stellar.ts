@@ -13,11 +13,16 @@ import {
 import { getContractAddress } from "@/lib/contracts.generated"
 import { createLogger } from "@/lib/logger"
 import { getOnChainTokenMeta } from "@/lib/token-metadata"
+import { resolveNetworkKey } from "@/lib/network-key"
 
 const log = createLogger("stellar")
 
-const envNetwork = (import.meta.env.VITE_NETWORK || "testnet").toLowerCase()
-const isMainnet = envNetwork === "mainnet" || envNetwork === "public"
+// Issue #742: derive from the shared resolveNetworkKey() instead of
+// re-implementing the testnet/staging/mainnet mapping here — this used to
+// treat "staging" as testnet while useVerifiedToken treated it as mainnet,
+// a real cross-module inconsistency (staging deploys against mainnet
+// contracts, so its RPC/passphrase must match).
+const isMainnet = resolveNetworkKey() === "mainnet"
 
 const defaultRpcUrl = isMainnet ? "https://soroban-mainnet.stellar.org" : "https://soroban-testnet.stellar.org"
 const defaultHorizonUrl = isMainnet ? "https://horizon.stellar.org" : "https://horizon-testnet.stellar.org"
@@ -164,8 +169,8 @@ function getClient(): RpcClient {
   return _client
 }
 
-// Keep backward-compat export used elsewhere in the codebase
-export function getRpc(): SorobanRpc.Server {
+// Shared RPC server instance used by the read/write helpers below
+function getRpc(): SorobanRpc.Server {
   return getClient().getServer()
 }
 
@@ -424,7 +429,11 @@ export async function submitTokenApproval(
   sourceAddress: string,
   signTransaction: (xdr: string) => Promise<{ signedTxXdr: string }>,
 ): Promise<void> {
-  const amountStroops = BigInt(Math.round(amount * 1e7))
+  // Issue #740: was hardcoded to 7 decimals regardless of the token's real
+  // decimals(), breaking the approve-then-lock flow for any token that
+  // isn't 7 decimals.
+  const { decimals } = await getOnChainTokenMeta(tokenAddress)
+  const amountStroops = BigInt(Math.round(amount * 10 ** decimals))
   const expirationLedger = 0
 
   const scArgs: xdr.ScVal[] = [
@@ -441,8 +450,4 @@ export async function submitTokenApproval(
 
 export function explorerLink(address: string): string {
   return `https://stellar.expert/explorer/${NETWORK.networkName}/contract/${address}`
-}
-
-export function txExplorerLink(hash: string): string {
-  return `https://stellar.expert/explorer/${NETWORK.networkName}/tx/${hash}`
 }

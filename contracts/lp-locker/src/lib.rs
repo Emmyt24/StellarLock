@@ -70,6 +70,8 @@ pub enum ContractError {
     TooManyBeneficiaries = 13,
     SharesMustSum10000 = 14,
     VestingEndBeforeStart = 15,
+    VestingOutsideLockBounds = 26,
+    DuplicateBeneficiary = 27,
     NothingToRelease = 16,
     RateLimitExceeded = 17,
     NoPendingUpgrade = 18,
@@ -80,6 +82,7 @@ pub enum ContractError {
     ContractPaused = 21,
     ExtensionLimitExceeded = 22,
     NotInitialized = 25,
+    InvalidPoolTokens = 28,
 }
 
 // ── On-chain types ────────────────────────────────────────────────────────────
@@ -187,6 +190,41 @@ fn guard_exit(env: &Env) {
     exit_guard(env, &DataKey::ReentrancyGuard);
 }
 
+/// Verify that token_a and token_b match the underlying assets of the pool_share token.
+/// Issue #732: Prevents callers from creating locks with mismatched token metadata.
+///
+/// Queries the pool's `token_a()` / `token_b()` getters and checks the caller-supplied
+/// pair matches in either order. If the pool does not expose those getters the check
+/// is skipped, preserving compatibility with pools that use a different interface.
+fn verify_pool_tokens(
+    env: &Env,
+    pool_share: &Address,
+    token_a: &Address,
+    token_b: &Address,
+) -> Result<(), ContractError> {
+    let pool_token = |name: &str| -> Option<Address> {
+        match env.try_invoke_contract::<Address, soroban_sdk::Error>(
+            pool_share,
+            &Symbol::new(env, name),
+            vec![env],
+        ) {
+            Ok(Ok(addr)) => Some(addr),
+            _ => None,
+        }
+    };
+
+    if let (Some(pool_token_a), Some(pool_token_b)) = (pool_token("token_a"), pool_token("token_b"))
+    {
+        let matches = (token_a == &pool_token_a && token_b == &pool_token_b)
+            || (token_a == &pool_token_b && token_b == &pool_token_a);
+        if !matches {
+            return Err(ContractError::InvalidPoolTokens);
+        }
+    }
+
+    Ok(())
+}
+
 fn require_not_paused(env: &Env) -> Result<(), ContractError> {
     let is_paused: bool = env
         .storage()
@@ -195,6 +233,22 @@ fn require_not_paused(env: &Env) -> Result<(), ContractError> {
         .unwrap_or(false);
     if is_paused {
         return Err(ContractError::ContractPaused);
+    }
+    Ok(())
+}
+
+fn validate_vesting_bounds(
+    vesting: Option<&Vesting>,
+    created_at: u64,
+    unlock_at: u64,
+) -> Result<(), ContractError> {
+    if let Some(v) = vesting {
+        if v.end <= v.start {
+            return Err(ContractError::VestingEndBeforeStart);
+        }
+        if v.start < created_at || v.start > unlock_at {
+            return Err(ContractError::VestingOutsideLockBounds);
+        }
     }
     Ok(())
 }
@@ -244,6 +298,10 @@ impl LpLocker {
             return Err(ContractError::IdenticalTokens);
         }
 
+        // Issue #732: Verify that token_a and token_b actually correspond to the
+        // pool_share's underlying assets, preventing metadata mismatches.
+        verify_pool_tokens(&env, &pool_share, &token_a, &token_b)?;
+
         // ── Rate limiting ─────────────────────────────────────────────────────
         let rate_key = DataKey::LastLockAt(creator.clone());
         let last_at: u64 = env.storage().temporary().get(&rate_key).unwrap_or(0);
@@ -251,11 +309,7 @@ impl LpLocker {
             return Err(ContractError::RateLimitExceeded);
         }
 
-        if let Some(ref v) = vesting {
-            if v.end <= v.start {
-                return Err(ContractError::VestingEndBeforeStart);
-            }
-        }
+        validate_vesting_bounds(vesting.as_ref(), now, unlock_at)?;
 
         token::Client::new(&env, &pool_share).transfer(
             &creator,
@@ -608,17 +662,17 @@ impl LpLocker {
             return Err(ContractError::IdenticalTokens);
         }
 
+        // Issue #732: Verify that token_a and token_b actually correspond to the
+        // pool_share's underlying assets, preventing metadata mismatches.
+        verify_pool_tokens(&env, &pool_share, &token_a, &token_b)?;
+
         let rate_key = DataKey::LastLockAt(creator.clone());
         let last_at: u64 = env.storage().temporary().get(&rate_key).unwrap_or(0);
         if now.saturating_sub(last_at) < RATE_LIMIT_COOLDOWN {
             return Err(ContractError::RateLimitExceeded);
         }
 
-        if let Some(ref v) = vesting {
-            if v.end <= v.start {
-                return Err(ContractError::VestingEndBeforeStart);
-            }
-        }
+        validate_vesting_bounds(vesting.as_ref(), now, unlock_at)?;
 
         let n = beneficiaries.len();
         if n < 2 {
@@ -630,9 +684,15 @@ impl LpLocker {
 
         let mut total_bps: u64 = 0;
         for i in 0..n {
-            let (_, bps) = beneficiaries.get(i).unwrap();
+            let (beneficiary, bps) = beneficiaries.get(i).unwrap();
             if bps == 0 {
                 return Err(ContractError::SharesMustSum10000);
+            }
+            for j in 0..i {
+                let (existing, _) = beneficiaries.get(j).unwrap();
+                if beneficiary == existing {
+                    return Err(ContractError::DuplicateBeneficiary);
+                }
             }
             total_bps += bps;
         }
@@ -666,6 +726,9 @@ impl LpLocker {
                     .ok_or(ContractError::AmountOverflow)?;
                 amount
             };
+            if share_amount <= 0 {
+                return Err(ContractError::AmountMustBePositive);
+            }
 
             // The first sub-lock reuses group_id so the group_id is also a
             // valid lock id; subsequent sub-locks get their own ids.
@@ -703,6 +766,27 @@ impl LpLocker {
                 false,
             );
             lock_ids.push_back(lock_id);
+
+            // Each split-group child is a fully independent LpLock (its own
+            // id, later withdrawable/extendable/transferable via the standard
+            // entry points), so it gets its own `lp_lock_created` event with
+            // its own beneficiary/amount, exactly like `create_lock` and
+            // mirroring the token-locker's per-child `lock_created` events.
+            // This lets the indexer track every child individually instead of
+            // dropping them entirely (the group-level `lp_split_lock_created`
+            // event below has no per-lock handler).
+            env.events().publish(
+                (
+                    Symbol::new(&env, "lp_lock_created"),
+                    lock_id,
+                    creator.clone(),
+                    pool_share.clone(),
+                    share_amount,
+                    beneficiary.clone(),
+                    unlock_at,
+                ),
+                (dex.clone(), token_a.clone(), token_b.clone()),
+            );
         }
 
         // Persist the split group record.
@@ -744,9 +828,12 @@ impl LpLocker {
                 .persistent()
                 .get(&DataKey::UniquePoolShareCount)
                 .unwrap_or(0);
+            let new_unique_count = unique_count
+                .checked_add(1)
+                .ok_or(ContractError::AmountOverflow)?;
             env.storage()
                 .persistent()
-                .set(&DataKey::UniquePoolShareCount, &(unique_count + 1));
+                .set(&DataKey::UniquePoolShareCount, &new_unique_count);
         }
         env.storage()
             .persistent()
@@ -758,9 +845,12 @@ impl LpLocker {
             .persistent()
             .get(&DataKey::GlobalLockCount)
             .unwrap_or(0);
+        let new_lock_count = lock_count
+            .checked_add(n as u64)
+            .ok_or(ContractError::AmountOverflow)?;
         env.storage()
             .persistent()
-            .set(&DataKey::GlobalLockCount, &(lock_count + n as u64));
+            .set(&DataKey::GlobalLockCount, &new_lock_count);
 
         env.events().publish(
             (
@@ -792,7 +882,7 @@ impl LpLocker {
         let mut out: Vec<SplitGroup> = vec![&env];
         let len = ids.len();
         let start = offset.min(len);
-        let end = (start + limit).min(len);
+        let end = start.saturating_add(limit).min(len);
         let mut i = start;
         while i < end {
             let id = ids.get(i).unwrap();
@@ -952,8 +1042,11 @@ impl LpLocker {
 
     // ── Emergency pause mechanism ─────────────────────────────────────────────
 
-    /// Pause the contract, preventing all state-mutating operations.
-    /// Admin only. Read-only queries remain available.
+    /// Pause the contract, blocking lock creation, withdrawal, extension,
+    /// and beneficiary transfer. Admin functions (propose/execute/cancel
+    /// upgrade, propose/accept admin, pause/unpause itself) and all read-only
+    /// queries remain available while paused — see docs/incident-response.md.
+    /// Admin only.
     pub fn pause(env: Env) -> Result<(), ContractError> {
         let admin: Address = env
             .storage()

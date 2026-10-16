@@ -134,6 +134,11 @@ export function CreateTokenLockForm() {
   const trimmedTokenAddress = tokenAddress.trim()
   const trimmedBeneficiary = beneficiary.trim()
 
+  // True when the split-beneficiary rows are ready to submit: exactly 10 000 bps
+  // total and at least two entries (mirrors the validation in MultiBeneficiaryFields).
+  const splitSharesOk =
+    splitBeneficiaries.length >= 2 && splitBeneficiaries.reduce((sum, b) => sum + b.shareBps, 0) === 10_000
+
   // Single source of truth for this form's validity — the same module backs
   // CreateLpLockForm, so the two forms can't drift apart. Memoized because
   // FormValidationErrors keys its screen-reader announcement off the result.
@@ -198,6 +203,49 @@ export function CreateTokenLockForm() {
   const costArgs = useMemo((): xdr.ScVal[] | null => {
     try {
       if (!validTokenAddress || !address || Number(amount) <= 0 || unlockTs <= Date.now()) return null
+
+      if (multiMode) {
+        // Cost estimation for split lock (create_split_lock method)
+        if (!splitSharesOk) return null
+        const amountStroops = BigInt(Math.round(Number(amount) * 1e7))
+        const beneficiaryArgs = splitBeneficiaries.map((b) =>
+          xdr.ScVal.scvMap([
+            new xdr.ScMapEntry({
+              key: xdr.ScVal.scvSymbol("address"),
+              val: new Address(b.address).toScVal(),
+            }),
+            new xdr.ScMapEntry({
+              key: xdr.ScVal.scvSymbol("share_bps"),
+              val: nativeToScVal(b.shareBps, { type: "u32" }),
+            }),
+          ]),
+        )
+        return [
+          new Address(address).toScVal(),
+          new Address(validTokenAddress).toScVal(),
+          nativeToScVal(amountStroops, { type: "i128" }),
+          xdr.ScVal.scvVec(beneficiaryArgs),
+          nativeToScVal(BigInt(Math.floor(unlockTs / 1000)), { type: "u64" }),
+          vesting
+            ? xdr.ScVal.scvMap([
+                new xdr.ScMapEntry({
+                  key: xdr.ScVal.scvSymbol("end"),
+                  val: nativeToScVal(BigInt(Math.floor(unlockTs / 1000)), { type: "u64" }),
+                }),
+                new xdr.ScMapEntry({
+                  key: xdr.ScVal.scvSymbol("released"),
+                  val: nativeToScVal(BigInt(0), { type: "i128" }),
+                }),
+                new xdr.ScMapEntry({
+                  key: xdr.ScVal.scvSymbol("start"),
+                  val: nativeToScVal(BigInt(Math.floor(Date.now() / 1000)), { type: "u64" }),
+                }),
+              ])
+            : xdr.ScVal.scvVoid(),
+        ]
+      }
+
+      // Cost estimation for regular lock (create_lock method)
       const beneficiaryAddr = beneficiary.trim().length > 0 ? beneficiary.trim() : address
       const amountStroops = BigInt(Math.round(Number(amount) * 1e7))
       const args: xdr.ScVal[] = [
@@ -231,7 +279,7 @@ export function CreateTokenLockForm() {
     } catch {
       return null
     }
-  }, [validTokenAddress, address, amount, beneficiary, unlockTs, vesting])
+  }, [validTokenAddress, address, amount, beneficiary, unlockTs, vesting, multiMode, splitBeneficiaries, splitSharesOk])
 
   function applyPreset(days: number) {
     const date = new Date(Date.now() + days * DAY).toISOString().slice(0, 10)
@@ -667,7 +715,11 @@ export function CreateTokenLockForm() {
 
         <TxErrorAlert error={error} />
 
-        <CostEstimate contractId={CONTRACTS.tokenLocker} method="create_lock" args={costArgs} />
+        <CostEstimate
+          contractId={CONTRACTS.tokenLocker}
+          method={multiMode ? "create_split_lock" : "create_lock"}
+          args={costArgs}
+        />
 
         <FormValidationErrors issues={visibleIssues} />
 

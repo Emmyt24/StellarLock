@@ -10,7 +10,9 @@
     "dismiss": "Descartar",
     "you": "Tú",
     "stellar": "Stellar",
-    "skipToContent": "Ir al contenido principal"
+    "skipToContent": "Ir al contenido principal",
+    "pause": "Pausar",
+    "resume": "Reanudar"
   },
   "nav": {
     "createLock": "Crear bloqueo",
@@ -164,6 +166,7 @@
     "extendLock": "Extender bloqueo",
     "newUnlockDate": "Nueva fecha de desbloqueo",
     "extendHint": "Debe ser posterior a la fecha de desbloqueo actual. Los bloqueos solo pueden extenderse, nunca acortarse.",
+    "extendDateMustBeAfter": "Debe ser posterior a la fecha de desbloqueo actual ({{date}}).",
     "confirmExtension": "Confirmar extensión",
     "transferBeneficiary": "Transferir beneficiario",
     "newBeneficiary": "Nueva dirección de beneficiario",
@@ -192,7 +195,14 @@
     "allLocks": "Todos los bloqueos ({{count}})",
     "noLocksTitle": "No se encontraron bloqueos",
     "noLocksDesc": "No pudimos encontrar bloqueos para <1>{{query}}</1>. Verifica el símbolo del token o la dirección del contrato, o crea el primer bloqueo para este token.",
-    "createLock": "Crear un bloqueo"
+    "createLock": "Crear un bloqueo",
+    "badge": {
+      "title": "Bloqueado en StellarLock",
+      "summary": "{{count}} bloqueo activo · {{value}} asegurado",
+      "summary_other": "{{count}} bloqueos activos · {{value}} asegurados",
+      "copyUrl": "Copiar enlace para compartir",
+      "copyBadge": "Copiar insignia para README"
+    }
   },
   "discover": {
     "title": "Explorar bloqueos",
@@ -424,6 +434,16 @@
       "recovery": "Elige una fecha más cercana dentro del rango permitido.",
       "title": "Extensión demasiado larga"
     },
+    "lockDurationTooShort": {
+      "message": "La fecha de desbloqueo está demasiado cerca de la hora actual. Se requiere una duración mínima de bloqueo.",
+      "recovery": "Elige una fecha de desbloqueo al menos 24 horas en el futuro.",
+      "title": "Duración del bloqueo demasiado corta"
+    },
+    "extensionLimitExceeded": {
+      "message": "Este bloqueo ya ha alcanzado el límite máximo de extensiones permitidas.",
+      "recovery": "No se pueden realizar más extensiones para este bloqueo.",
+      "title": "Límite de extensiones superado"
+    },
     "unlockTooSoon": {
       "message": "La nueva fecha de desbloqueo debe ser suficientemente posterior a la actual para contar como una extensión.",
       "recovery": "Elige una fecha más lejana en el futuro.",
@@ -458,6 +478,21 @@
       "title": "Identical Tokens",
       "message": "Token A and Token B must be different addresses.",
       "recovery": "Choose two distinct token addresses for your LP pair."
+    },
+    "notInitialized": {
+      "title": "Contrato no inicializado",
+      "message": "El contrato aún no se ha inicializado con un administrador.",
+      "recovery": "Contacta al operador del contrato para inicializar el despliegue."
+    },
+    "lockNotFound": {
+      "title": "Bloqueo no encontrado",
+      "message": "No se encontró ningún bloqueo con este ID.",
+      "recovery": "Verifica el ID del bloqueo y la dirección del contrato e inténtalo de nuevo."
+    },
+    "contractPaused": {
+      "title": "Contrato en pausa",
+      "message": "El administrador ha pausado el contrato por mantenimiento o emergencia.",
+      "recovery": "Vuelve a intentarlo más tarde, cuando se reanuden las operaciones."
     }
   },
   "notfound": {
@@ -486,5 +521,47 @@
     "title": "Algo salió mal",
     "message": "Algo salió mal. Por favor, inténtelo de nuevo.",
     "tryAgain": "Intentar de nuevo"
+  },
+  "lockStatus": {
+    "locked": "Bloqueado",
+    "unlockable": "Desbloqueable",
+    "withdrawn": "Retirado"
+  },
+  "lockCreated": {
+    "title": "Bloqueo creado | StellarLock",
+    "description": "Tu bloqueo se ha creado correctamente en Stellar.",
+    "heading": "¡Bloqueo creado!",
+    "subheading": "Tus tokens ahora están bloqueados on-chain.",
+    "vestingActive": "Hay un calendario de vesting activo.",
+    "lockSummary": "Resumen del bloqueo",
+    "lockId": "ID del bloqueo",
+    "copyLockId": "Copiar ID del bloqueo",
+    "type": "Tipo",
+    "lpLock": "Bloqueo LP",
+    "tokenLock": "Bloqueo de token",
+    "token": "Token",
+    "amount": "Cantidad",
+    "beneficiary": "Beneficiario",
+    "creator": "Creador",
+    "unlockDate": "Fecha de desbloqueo",
+    "vesting": "Vesting",
+    "vestingEnabled": "Vesting lineal activado",
+    "createdAt": "Creado el",
+    "transactionDetails": "Detalles de la transacción",
+    "txHash": "Hash de TX",
+    "copyTxHash": "Copiar hash de la transacción",
+    "viewTxStellarExpert": "Ver transacción en Stellar Expert",
+    "network": "Red",
+    "shareTitle": "Compartir este bloqueo",
+    "copyShareLink": "Copiar enlace para compartir",
+    "viewLockDetail": "Ver detalle del bloqueo",
+    "createAnother": "Crear otro",
+    "copied": "¡{{label}} copiado!"
+  },
+  "txProgress": {
+    "simulating": "Simulando transacción…",
+    "signing": "Firma en tu billetera…",
+    "submitting": "Enviando a la red…",
+    "confirming": "Esperando confirmación…"
   }
 }

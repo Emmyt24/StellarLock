@@ -27,27 +27,50 @@ test.describe("Explorer Page", () => {
 
   test("Token header displays after loading", async ({ page }) => {
     const explorer = new ExplorerPage(page)
-    // Use a mock token address (would be real in prod)
     await explorer.goto("GBMXUQVSF5VVFV7THVNO6ZSPHVZXDXHEHC3CFLCV4BQXLRGLVKZAQWEF")
-    await explorer.waitForTokenHeader()
-    const name = await explorer.getTokenName()
-    expect(name).toBeTruthy()
+    await expect(explorer.tokenHeading()).toBeVisible()
+    await expect(explorer.tokenHeading()).not.toBeEmpty()
   })
 
   test("Lock list renders", async ({ page }) => {
+    // Serve one indexed lock for this token so the list is deterministic rather
+    // than depending on whatever happens to be on testnet.
+    const token = "CBFCKEOQRQIXKLGU4QBUQVOINOKFBOXJ37LXEKLKNUO6TW4FNGDU26AW"
+    const nowSecs = Math.floor(Date.now() / 1000)
+    await page.route(INDEXER_LOCKS, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          total: 1,
+          locks: [
+            {
+              id: "1",
+              kind: "token",
+              creator: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+              beneficiary: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+              token,
+              amount: "1000000000",
+              unlockAt: nowSecs + 30 * 86_400,
+              status: "locked",
+              createdAt: nowSecs - 86_400,
+            },
+          ],
+        }),
+      }),
+    )
+    await mockSorobanRpc(page)
+
     const explorer = new ExplorerPage(page)
-    await explorer.goto("GBMXUQVSF5VVFV7THVNO6ZSPHVZXDXHEHC3CFLCV4BQXLRGLVKZAQWEF")
-    await explorer.waitForTokenHeader()
-    const lockCount = await explorer.getLockCount()
-    expect(lockCount).toBeGreaterThanOrEqual(0)
+    await explorer.goto(token)
+    await expect(explorer.tokenHeading()).toBeVisible()
+    await expect(explorer.lockList().first()).toBeVisible()
   })
 
   test("Shows empty state for nonexistent token", async ({ page }) => {
     const explorer = new ExplorerPage(page)
     await explorer.goto("GBADZZZ5VVFV7THVNO6ZSPHVZXDXHEHC3CFLCV4BQXLRGLVKZAQWEF")
-    await page.waitForTimeout(500)
-    const text = await page.textContent("text=/not found|no locks/i")
-    expect(text).toBeTruthy()
+    await expect(explorer.emptyOrNotFound()).toBeVisible()
   })
 })
 
@@ -73,6 +96,6 @@ test.describe("Discover Page", () => {
     await discover.goto()
     await discover.searchToken("GBMXUQVSF5VVFV7THVNO6ZSPHVZXDXHEHC3CFLCV4BQXLRGLVKZAQWEF")
     await explorer.waitForTokenHeader()
-    expect(await page.url()).toContain("GBMXUQVSF5VVFV7THVNO6ZSPHVZXDXHEHC3CFLCV4BQXLRGLVKZAQWEF")
+    expect(page.url()).toContain("GBMXUQVSF5VVFV7THVNO6ZSPHVZXDXHEHC3CFLCV4BQXLRGLVKZAQWEF")
   })
 })
