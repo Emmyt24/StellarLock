@@ -15,23 +15,20 @@ export class MyLocksPage {
     await this.page.fill('input[placeholder*="Search"]', query)
   }
 
-  async filterByStatus(status: string) {
-    await this.page.selectOption("select", status)
+  async filterByStatus(status: "all" | "locked" | "unlockable" | "withdrawn") {
+    await this.page.getByLabel("Filter by status").selectOption(status)
   }
 
-  async filterByType(type: string) {
-    const selects = await this.page.locator("select").all()
-    if (selects.length > 1) {
-      await selects[1].selectOption(type)
-    }
+  async filterByType(type: "all" | "token" | "lp") {
+    await this.page.getByLabel("Filter by type").selectOption(type)
   }
 
   async getLockCards() {
-    return await this.page.locator('[class*="LockCard"]').count()
+    return await this.page.locator('a[href^="/app/lock/"]').count()
   }
 
   async clickFirstLock() {
-    await this.page.locator('[class*="LockCard"]').first().click()
+    await this.page.locator('a[href^="/app/lock/"]').first().click()
   }
 
   emptyState() {
@@ -40,17 +37,5 @@ export class MyLocksPage {
 
   loadingSkeleton() {
     return this.page.locator('[class*="animate-pulse"]').first()
-  }
-
-  async getEmptyStateMessage() {
-    return await this.page.locator("text=/no locks/i").textContent()
-  }
-
-  async isLoading() {
-    return await this.page.locator('[class*="SkeletonLockCard"]').isVisible()
-  }
-
-  async waitForSkeletonsToLoad() {
-    await this.page.locator('[class*="animate-pulse"]').first().waitFor()
   }
 }

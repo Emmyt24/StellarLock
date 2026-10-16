@@ -89,6 +89,7 @@ vi.mock("@/lib/web-vitals", () => ({
 }))
 
 vi.mock("@/hooks/useLocks", () => ({
+  ALL_LOCKS_LIMIT: 10_000,
   useMyLocks: () => ({ data: { created: [], received: [] }, loading: false, error: null }),
   useMyLocksStats: () => ({ data: { totalValue: 0, unlockable: 0 }, loading: false, error: null }),
   useLocksByToken: () => ({ data: null, loading: false, error: null }),
@@ -116,7 +117,6 @@ vi.mock("@/hooks/useRpcHealth", () => ({
 
 vi.mock("@/hooks/useContractEventContext", () => ({
   useContractEventContext: () => ({ events: [] }),
-  ContractEventProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 // Stub the form components that have pre-existing parse issues so they render

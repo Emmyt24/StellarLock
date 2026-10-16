@@ -8,10 +8,15 @@ on:
   schedule:
     - cron: "0 8 * * 1"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   npm-audit:
     name: npm dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -21,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: pnpm
 
       - name: Install dependencies
@@ -33,6 +38,7 @@ jobs:
   cargo-audit:
     name: Cargo dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -58,6 +64,7 @@ jobs:
   cargo-deny:
     name: Cargo license & advisory check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 

@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   commitlint:
     name: Commit Message Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Conventional commit messages are what the changelog is generated from,
     # so they have to be enforced for that output to be meaningful.
     if: github.event_name == 'pull_request'
@@ -29,6 +34,16 @@ jobs:
         with:
           node-version: '22'
 
+      # Mirrors the caching pattern used in the frontend job so pnpm install
+      # does not re-download the full store on every PR (#757).
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -42,6 +57,7 @@ jobs:
   frontend:
     name: Frontend Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,6 +90,12 @@ jobs:
       - name: Type Check
         run: pnpm exec tsc -b
 
+      # Reports unused files (see knip.json). Non-blocking for now so existing
+      # dead code doesn't fail CI; tighten once the report is clean (#990).
+      - name: Unused files (knip)
+        continue-on-error: true
+        run: pnpm exec knip --include files
+
       - name: Unit / component tests
         run: pnpm test
 
@@ -86,6 +108,7 @@ jobs:
   e2e:
     name: End-to-End and Visual Regression
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -99,6 +122,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      # Mirrors the caching pattern used in the frontend job so pnpm install
+      # does not re-download the full store on every PR (#757).
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -136,6 +169,7 @@ jobs:
   contracts:
     name: Smart Contract Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: ./contracts
