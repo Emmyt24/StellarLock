@@ -7,8 +7,8 @@
 mod tests;
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, token, vec, Address, BytesN, Env, Symbol,
-    Vec,
+    contract, contracterror, contractimpl, contracttype, token, vec, Address, BytesN, Env,
+    InvokeError, Symbol, Vec,
 };
 
 // ── Shared types, constants, and helpers from locker-common ──────────────────
@@ -82,6 +82,10 @@ pub enum ContractError {
     ContractPaused = 21,
     ExtensionLimitExceeded = 22,
     NotInitialized = 25,
+    /// The pool contract exposes `token_a()`/`token_b()` getters but the
+    /// addresses returned do not match the `token_a`/`token_b` arguments
+    /// supplied by the caller.  Error code 28 is reserved for this variant;
+    /// codes 26 and 27 are reserved for future use.
     InvalidPoolTokens = 28,
 }
 
@@ -237,6 +241,46 @@ fn require_not_paused(env: &Env) -> Result<(), ContractError> {
     Ok(())
 }
 
+// ── Pool-token verification ────────────────────────────────────────────────────
+//
+// `verify_pool_tokens` performs a *best-effort* cross-contract check.  If the
+// pool contract exposes `token_a()` and `token_b()` getters (Aquarius /
+// Soroswap standard), we call them and compare the returned addresses against
+// the `token_a` / `token_b` arguments supplied by the caller.  If the getters
+// do not exist — or the cross-contract call fails for any other reason — we
+// skip the check silently rather than blocking the lock.  This means:
+//
+//   • A pool whose interface matches → checked and enforced.
+//   • A pool with a different interface → skipped (no guarantee).
+//   • A malicious pool whose getters return false data → blocked.
+//
+// See contracts/README.md §"Pool-token verification" for a full discussion.
+
+fn verify_pool_tokens(
+    env: &Env,
+    pool_share: &Address,
+    token_a: &Address,
+    token_b: &Address,
+) -> Result<(), ContractError> {
+    // Try to call `token_a()` on the pool contract.
+    // try_invoke_contract returns Err(_) when the call itself fails (e.g. the
+    // function does not exist), which we treat as "interface not supported →
+    // skip check".
+    let reported_a: Address =
+        match env.try_invoke_contract::<Address, InvokeError>(pool_share, &Symbol::new(env, "token_a"), vec![env]) {
+            Ok(Ok(addr)) => addr,
+            // Call failed or getter absent — skip the check entirely.
+            _ => return Ok(()),
+        };
+
+    let reported_b: Address =
+        match env.try_invoke_contract::<Address, InvokeError>(pool_share, &Symbol::new(env, "token_b"), vec![env]) {
+            Ok(Ok(addr)) => addr,
+            _ => return Ok(()),
+        };
+
+    if &reported_a != token_a || &reported_b != token_b {
+        return Err(ContractError::InvalidPoolTokens);
 fn validate_vesting_bounds(
     vesting: Option<&Vesting>,
     created_at: u64,
@@ -262,6 +306,31 @@ pub struct LpLocker;
 impl LpLocker {
     /// Lock `amount` of pool-share tokens until `unlock_at` (unix seconds).
     /// Returns the new lock id.
+    ///
+    /// ## Pool-token verification (best-effort)
+    ///
+    /// Before accepting the lock this function attempts to verify that
+    /// `token_a` and `token_b` match what the pool contract itself reports.
+    /// It does so by calling the `token_a()` and `token_b()` getters on
+    /// `pool_share` via a cross-contract call.
+    ///
+    /// **When the check is enforced:** if the pool contract exposes both
+    /// `token_a()` and `token_b()` getters (Aquarius / Soroswap standard)
+    /// and they return addresses that differ from the supplied `token_a` /
+    /// `token_b` arguments, the call is rejected with
+    /// [`ContractError::InvalidPoolTokens`] (error code 28).
+    ///
+    /// **When the check is skipped:** if the pool contract does not expose
+    /// those getters, or if the cross-contract call fails for any other
+    /// reason, the check is silently bypassed and the lock proceeds.  In
+    /// that case the contract provides **no guarantee** that the recorded
+    /// `token_a`/`token_b` pair matches the actual pool composition.
+    /// Integrators should be aware that a malicious pool could report
+    /// arbitrary tokens through those getters, or omit them entirely to
+    /// bypass the check.
+    ///
+    /// See `contracts/README.md` §"Pool-token verification" for further
+    /// detail.
     pub fn create_lock(
         env: Env,
         creator: Address,
@@ -298,6 +367,9 @@ impl LpLocker {
             return Err(ContractError::IdenticalTokens);
         }
 
+        // Best-effort pool-token check: if the pool exposes token_a()/token_b()
+        // getters, verify they match the supplied addresses.  Pools that do not
+        // expose those getters pass through unchecked.
         // Issue #732: Verify that token_a and token_b actually correspond to the
         // pool_share's underlying assets, preventing metadata mismatches.
         verify_pool_tokens(&env, &pool_share, &token_a, &token_b)?;
