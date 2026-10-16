@@ -7,6 +7,11 @@ We are committed to providing a welcoming and inclusive community. Please review
 ## Prerequisites
 
 - **Node.js** 22+
+- **pnpm 9** — enabled via [Corepack](https://nodejs.org/api/corepack.html) (ships with Node 22):
+  ```bash
+  corepack enable
+  ```
+  Corepack reads the `packageManager` field in `package.json` and automatically uses **pnpm 9.15.9**. Do not install pnpm globally via `npm install -g pnpm` — that can pull in a newer version that ignores `pnpm.overrides` and breaks the lockfile.
 - **pnpm 9** — `npm install -g pnpm@9` (CI and the lockfile use pnpm 9; newer majors may rewrite `pnpm-lock.yaml`)
 - **Rust** — `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - **Stellar CLI** — `cargo install stellar-cli --features opt`
