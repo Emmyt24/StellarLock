@@ -595,5 +595,17 @@
     "linearVestingEnabled": "선형 베스팅 활성화됨",
     "insufficientBalance": "잔액이 부족합니다.",
     "approvalRequired": "승인 필요"
+  "settings": {
+    "title": "설정",
+    "addressBook": "주소록",
+    "newAddress": "새 주소",
+    "notificationPreferences": "알림 설정",
+    "label": "레이블",
+    "stellarAddress": "Stellar 주소",
+    "address": "주소",
+    "actions": "작업",
+    "exportJson": "JSON으로 내보내기",
+    "importJson": "JSON에서 가져오기",
+    "searchPlaceholder": "레이블 또는 주소로 검색…"
   }
 }
